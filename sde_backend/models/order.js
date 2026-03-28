@@ -9,12 +9,12 @@ const orderSchema = new mongoose.Schema({
   paymentStatus: { 
     type: String, 
     required: true, 
-    enum: ['pending', 'escrow', 'completed', 'refunded'] // Safe with Admin logic[cite: 3]
+    enum: ['escrow_deposited','pending', 'escrow', 'completed', 'refunded', 'cancelled','escrow_pending'] // Safe with Admin logic[cite: 3]
   },
   orderStatus: { 
     type: String, 
     required: true, 
-    enum: ['processing', 'shipped', 'delivered'] 
+    enum: ['processing', 'shipped', 'delivered', 'cancelled'] 
   },
   createdAt: { type: Date, default: Date.now }
 });

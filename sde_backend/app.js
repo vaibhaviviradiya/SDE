@@ -3,6 +3,7 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+require('dotenv').config();
 var {MONGODB_URI} = require('./config/key')
 var mongoose = require('mongoose');
 
@@ -12,6 +13,8 @@ var diamondsRouter = require('./routes/diamonds');
 var inquiriesRouter = require('./routes/inquiries');
 var chatsRouter = require('./routes/chats');
 var ordersRouter = require('./routes/orders');
+var adminRouter = require('./routes/admin');
+var escrowRouter = require('./routes/escrow');
 var app = express();
 
 // view engine setup
@@ -28,6 +31,14 @@ mongoose.connect(MONGODB_URI).then(()=>{
   console.log("connect with db");  
 })
 
+const cors = require('cors');
+
+app.use(cors({
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
+
 app.use('/public', express.static('public'));
 
 app.use('/', indexRouter);
@@ -36,6 +47,8 @@ app.use('/diamonds', diamondsRouter);
 app.use('/inquiries', inquiriesRouter);
 app.use('/chats', chatsRouter);
 app.use('/orders', ordersRouter);
+app.use('/admin', adminRouter);
+app.use('/escrow', escrowRouter);
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));

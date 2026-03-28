@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    text-decoration: none !important;
+  }
+  a {
+    text-decoration: none !important;
+  }
+  button {
+    text-decoration: none !important;
+  }
+}
