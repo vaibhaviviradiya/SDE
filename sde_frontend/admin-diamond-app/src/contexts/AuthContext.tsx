@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     // Check for token in localStorage on app start
-    const storedToken = localStorage.getItem('admin_token');
+    const storedToken = localStorage.getItem('token') || localStorage.getItem('admin_token');
     if (storedToken) {
       setToken(storedToken);
       // Set axios default header
@@ -44,12 +44,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = (newToken: string) => {
     setToken(newToken);
     localStorage.setItem('admin_token', newToken);
+    localStorage.setItem('token', newToken);
     axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
   };
 
   const logout = () => {
     setToken(null);
     localStorage.removeItem('admin_token');
+    localStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
   };
 

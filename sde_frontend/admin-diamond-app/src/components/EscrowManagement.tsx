@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Search, CheckCircle, DollarSign, Eye } from 'lucide-react';
-import { useOrderQueries } from '../hooks/useOrderQueries';
-import { useEscrowQueries } from '../hooks/useEscrowQueries';
-import { useQueryClient } from '@tanstack/react-query';
+import { useGetEscrowStats, useVerifyDeposit, useReleaseFunds } from '../hooks/useEscrowQueries';
 
 type Order = {
   _id: string;
@@ -33,52 +31,81 @@ const EscrowManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const { useGetAllOrders, useUpdatePaymentStatus } = useOrderQueries();
-  const { useVerifyDeposit, useReleaseFunds } = useEscrowQueries();
-  const queryClient = useQueryClient();
-
-  const { data: ordersData } = useGetAllOrders();
-
+  const { data: orders = [] } = useGetEscrowStats();
   const verifyDepositMutation = useVerifyDeposit();
   const releaseFundsMutation = useReleaseFunds();
-  const updatePaymentMutation = useUpdatePaymentStatus();
+  const [displayStatusMap, setDisplayStatusMap] = useState<Record<string, 'pending' | 'escrow_deposited' | 'completed'>>({});
 
-  const orders = ordersData?.data || [];
-
-  const filteredOrders = orders.filter((order: Order) => {
-    const matchesSearch = order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.buyerId?.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.sellerId?.companyName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || order.paymentStatus === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const handleVerifyDeposit = async (orderId: string) => {
-    try {
-      await updatePaymentMutation.mutateAsync({
-        id: orderId,
-        paymentData: { status: 'escrow_deposited' }
-      });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-    } catch (error) {
-      console.error('Failed to verify deposit:', error);
-    }
+  // Helper that derives the UI display status for an order
+  const getDisplayStatus = (order: Order) => {
+    const fromMap = displayStatusMap[order._id];
+    if (fromMap) return fromMap;
+    if (order.paymentStatus === 'completed') return 'completed';
+    // Treat server-side 'escrow_deposited' as pending verification by default.
+    // Admin must click "Verify Deposit" to mark it as 'escrow_deposited' in the UI.
+    return 'pending';
   };
 
-  const handleReleaseFunds = async (orderId: string) => {
-    try {
-      await releaseFundsMutation.mutateAsync(orderId);
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      queryClient.invalidateQueries({ queryKey: ['diamonds'] });
-    } catch (error) {
-      console.error('Failed to release funds:', error);
-    }
+  // Calculate stats using display status so counts match the UI
+  const totalFundsHeld = orders
+    .filter((order: Order) => getDisplayStatus(order) === 'escrow_deposited')
+    .reduce((sum: number, order: Order) => sum + order.agreedPrice, 0);
+
+  const pendingVerification = orders.filter((order: Order) => getDisplayStatus(order) === 'pending').length;
+
+  const filteredOrders = orders.filter((order: Order) => {
+    // Use optional chaining (?.) to prevent crashing if fields are missing
+    const orderId = order.orderId?.toLowerCase() || '';
+    const buyerName = order.buyerId?.companyName?.toLowerCase() || '';
+    const sellerName = order.sellerId?.companyName?.toLowerCase() || '';
+    const search = searchTerm.toLowerCase();
+
+    const matchesSearch = 
+      orderId.includes(search) || 
+      buyerName.includes(search) || 
+      sellerName.includes(search);
+
+    const displayStatus = getDisplayStatus(order);
+    const matchesStatus = statusFilter === 'all' || displayStatus === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+  const handleVerifyDeposit = (orderId: string) => {
+    const prev = displayStatusMap[orderId] ?? 'pending';
+    // optimistic UI: show deposited (Release) immediately
+    setDisplayStatusMap((s) => ({ ...s, [orderId]: 'escrow_deposited' }));
+    verifyDepositMutation.mutate(orderId, {
+      onError: () => {
+        // revert to previous display status on error
+        setDisplayStatusMap((s) => {
+          const copy = { ...s };
+          if (prev === 'pending') delete copy[orderId]; else copy[orderId] = prev;
+          return copy;
+        });
+      },
+    });
+  };
+
+  const handleReleaseFunds = (orderId: string) => {
+    const prev = displayStatusMap[orderId] ?? (orders.find(o => o._id === orderId)?.paymentStatus === 'completed' ? 'completed' : 'pending');
+    // optimistic UI: mark completed immediately
+    setDisplayStatusMap((s) => ({ ...s, [orderId]: 'completed' }));
+    releaseFundsMutation.mutate(orderId, {
+      onError: () => {
+        // revert to previous display status on error
+        setDisplayStatusMap((s) => {
+          const copy = { ...s };
+          if (prev === 'pending') delete copy[orderId]; else copy[orderId] = prev;
+          return copy;
+        });
+      },
+    });
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending_payment: { color: 'bg-yellow-500', text: 'Pending Payment' },
-      escrow_deposited: { color: 'bg-blue-500', text: 'Deposit Verified' },
+      pending: { color: 'bg-yellow-500', text: 'Pending' },
+      escrow_deposited: { color: 'bg-blue-500', text: 'Deposited' },
       completed: { color: 'bg-green-500', text: 'Completed' },
     };
     const config = statusConfig[status as keyof typeof statusConfig] || { color: 'bg-gray-500', text: status };
@@ -99,6 +126,29 @@ const EscrowManagement: React.FC = () => {
             <h1 className="text-3xl font-bold text-white">Escrow Management</h1>
           </div>
           <p className="text-gray-400">Secure high-value diamond transactions with verified fund management</p>
+        </div>
+
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="bg-[#111111] border border-[#d4af37] rounded-lg p-6">
+            <div className="flex items-center">
+              {/* <h1>₹</h1> */}
+              {/* <DollarSign className="w-8 h-8 text-[#d4af37] mr-4" /> */}
+              <div>
+                <p className="text-sm font-medium text-gray-400">Total Funds Held</p>
+                <p className="text-2xl font-bold text-white">₹{totalFundsHeld.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-[#111111] border border-[#d4af37] rounded-lg p-6">
+            <div className="flex items-center">
+              <Eye className="w-8 h-8 text-[#d4af37] mr-4" />
+              <div>
+                <p className="text-sm font-medium text-gray-400">Pending Verification</p>
+                <p className="text-2xl font-bold text-white">{pendingVerification}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
@@ -123,8 +173,8 @@ const EscrowManagement: React.FC = () => {
                 className="w-full px-4 py-2 bg-[#111111] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#d4af37]"
               >
                 <option value="all">All Statuses</option>
-                <option value="pending_payment">Pending Payment</option>
-                <option value="escrow_deposited">Deposit Verified</option>
+                <option value="pending">Pending</option>
+                <option value="escrow_deposited">Deposited</option>
                 <option value="completed">Completed</option>
               </select>
             </div>
@@ -138,10 +188,9 @@ const EscrowManagement: React.FC = () => {
               <thead className="bg-[#111111] border-b border-gray-800">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Order ID</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Buyer</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Seller</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Diamond</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Diamond Info</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Total Amount</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Buyer/Seller</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -153,56 +202,54 @@ const EscrowManagement: React.FC = () => {
                       {order.orderId}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      <div>
-                        <div className="font-medium">{order.buyerId?.companyName}</div>
-                        <div className="text-gray-500">{order.buyerId?.ownerName}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      <div>
-                        <div className="font-medium">{order.sellerId?.companyName}</div>
-                        <div className="text-gray-500">{order.sellerId?.ownerName}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      <div>
-                        <div className="font-medium">{order.diamondId?.shape} {order.diamondId?.carat}ct</div>
-                        <div className="text-gray-500">${order.diamondId?.price?.toLocaleString()}</div>
-                      </div>
+                      {order.diamondId?.shape} {order.diamondId?.carat}ct
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-[#d4af37] font-medium">
                       ${order.agreedPrice?.toLocaleString()}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                      {order.buyerId?.companyName} / {order.sellerId?.companyName}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(order.paymentStatus)}
+                      {getStatusBadge(getDisplayStatus(order))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex gap-2">
-                        {order.paymentStatus === 'pending_payment' && (
-                          <button
-                            onClick={() => handleVerifyDeposit(order._id)}
-                            disabled={verifyDepositMutation.isPending}
-                            className="flex items-center gap-1 px-3 py-1 bg-[#d4af37] text-black rounded-lg hover:bg-[#b8942a] transition-colors disabled:opacity-50"
-                          >
+                      {(() => {
+                        const displayStatus = getDisplayStatus(order);
+
+                        if (displayStatus === 'pending') {
+                          return (
+                            <button
+                              onClick={() => handleVerifyDeposit(order._id)}
+                              disabled={verifyDepositMutation.isLoading}
+                              className="flex items-center gap-1 px-3 py-1 bg-[#d4af37] text-black rounded-lg hover:bg-[#b8942a] transition-colors disabled:opacity-50"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Verify Deposit
+                            </button>
+                          );
+                        }
+
+                        if (displayStatus === 'escrow_deposited') {
+                          return (
+                            <button
+                              onClick={() => handleReleaseFunds(order._id)}
+                              disabled={releaseFundsMutation.isLoading}
+                              className="flex items-center gap-1 px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                            >
+                              <DollarSign className="w-4 h-4" />
+                              Release Funds
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <div className="flex items-center gap-1 text-green-500">
                             <CheckCircle className="w-4 h-4" />
-                            Verify Deposit
-                          </button>
-                        )}
-                        {order.paymentStatus === 'escrow_deposited' && (
-                          <button
-                            onClick={() => handleReleaseFunds(order._id)}
-                            disabled={releaseFundsMutation.isPending}
-                            className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                          >
-                            <DollarSign className="w-4 h-4" />
-                            Release Funds
-                          </button>
-                        )}
-                        <button className="flex items-center gap-1 px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                          <Eye className="w-4 h-4" />
-                          View Details
-                        </button>
-                      </div>
+                            Settled
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

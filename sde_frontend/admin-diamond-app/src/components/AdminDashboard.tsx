@@ -181,6 +181,11 @@ const AdminDashboard: React.FC = () => {
           {/* FINANCE Group */}
           <div>
             <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest mb-3 px-3">Finance</p>
+            <NavItem 
+              icon={<ShieldCheck size={18} />} 
+              label="Escrow Management" 
+              onClick={() => navigate('/escrow')} 
+            />
             <NavItem icon={<AlertTriangle size={18} />} label="Disputes" />
           </div>
         </div>
@@ -224,8 +229,8 @@ const AdminDashboard: React.FC = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <StatCard title="Total Users" value={totalUserCount} trend="+12 this week" color="#d4af37" />
-          <StatCard title="Active Orders" value={ ordersList.length} trend="+5 today" color="#22c55e" />
+          <StatCard title="Total Users" value={String(totalUserCount)} trend="+12 this week" color="#d4af37" />
+          <StatCard title="Active Orders" value={String(ordersList.length)} trend="+5 today" color="#22c55e" />
           <StatCard title="Diamonds Listed" value={totalDiamondCountLabel} trend="+28 this week" color="#d4af37" />
           <StatCard title="Open Disputes" value="4" trend="Needs attention" color="#ef4444" isAlert />
         </div>

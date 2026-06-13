@@ -32,6 +32,7 @@ const AdminLogin: React.FC = () => {
 
       // Store JWT token and login
       if (data.token) {
+        localStorage.setItem('token', data.token);
         login(data.token);
         console.log('Login success:', data);
         navigate('/dashboard');

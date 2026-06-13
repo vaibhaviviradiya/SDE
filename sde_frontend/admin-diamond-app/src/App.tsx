@@ -6,6 +6,7 @@ import SellersPage from "./components/SellersPage"
 import ManufacturersPage from "./components/ManufacturersPage"
 import DiamondListingsPage from "./components/DiamondListingsPage"
 import InquiriesPage from "./components/InquiriesPage"
+import EscrowManagement from "./components/EscrowManagement"
 import ProtectedRoute from "./components/ProtectedRoute"
 import { AuthProvider } from "./contexts/AuthContext"
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
@@ -55,6 +56,11 @@ function App() {
           <Route path="/diamonds" element={
             <ProtectedRoute>
               <DiamondListingsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/escrow" element={
+            <ProtectedRoute>
+              <EscrowManagement />
             </ProtectedRoute>
           } />
         </Routes>
