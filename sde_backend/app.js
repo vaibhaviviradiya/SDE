@@ -15,6 +15,7 @@ var chatsRouter = require('./routes/chats');
 var ordersRouter = require('./routes/orders');
 var adminRouter = require('./routes/admin');
 var escrowRouter = require('./routes/escrow');
+var disputesRouter = require('./routes/disputes');
 var app = express();
 
 // view engine setup
@@ -49,6 +50,7 @@ app.use('/chats', chatsRouter);
 app.use('/orders', ordersRouter);
 app.use('/admin', adminRouter);
 app.use('/escrow', escrowRouter);
+app.use('/disputes', disputesRouter);
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));

@@ -1,16 +1,13 @@
 const Inquiry = require('../models/inquiry');
 const Diamond = require('../models/diamond');
 
-// @desc    Naya offer/inquiry bhejne ke liye (Sirf Buyer/Trader)
 exports.createInquiry = async (req, res) => {
   try {
     const { diamondId, offeredPrice, message } = req.body;
 
-    // 1. Pehle check karo diamond exist karta hai ya nahi
+
     const diamond = await Diamond.findById(diamondId);
     if (!diamond) return res.status(404).json({ message: "Diamond not found" });
-
-    // 2. Inquiry create karo
     const inquiry = new Inquiry({
       diamondId,
       buyerId: req.user.id, // Logged-in Buyer
@@ -26,7 +23,6 @@ exports.createInquiry = async (req, res) => {
   }
 };
 
-// @desc    Seller apne diamonds par aaye saare offers dekh sakega
 exports.getSellerInquiries = async (req, res) => {
   try {
     const inquiries = await Inquiry.find({ sellerId: req.user.id })
@@ -39,7 +35,6 @@ exports.getSellerInquiries = async (req, res) => {
   }
 };
 
-// @desc    Admin ke liye saare inquiries dekhne ke liye
 exports.getAllInquiries = async (req, res) => {
   try {
     const inquiries = await Inquiry.find()
@@ -53,7 +48,6 @@ exports.getAllInquiries = async (req, res) => {
   }
 };
 
-// @desc    Kisi specific diamond ke liye inquiries (seller/admin may access)
 exports.getDiamondInquiries = async (req, res) => {
   try {
     const { id: diamondId } = req.params;
@@ -75,15 +69,12 @@ exports.getDiamondInquiries = async (req, res) => {
   }
 };
 
-// @desc    Offer ko Accept ya Reject karne ke liye
 exports.updateInquiryStatus = async (req, res) => {
   try {
     const { status } = req.body; 
     
-    // Debugging ke liye: Terminal check karein ki 'accepted' aa raha hai ya nahi
     console.log("Status received from frontend:", status);
 
-    // Check ki status valid hai ya nahi
     const validStatuses = ['accepted', 'rejected', 'pending'];
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({ 

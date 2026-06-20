@@ -1,5 +1,6 @@
 import AdminDashboard from "./components/AdminDashboard"
 import AdminLogin from "./components/AdminLogin"
+import ResetPassword from "./components/ResetPassword"
 import BuyerDetails from "./components/BuyerDetails"
 import BuyersPage from "./components/BuyersPage"
 import SellersPage from "./components/SellersPage"
@@ -7,6 +8,8 @@ import ManufacturersPage from "./components/ManufacturersPage"
 import DiamondListingsPage from "./components/DiamondListingsPage"
 import InquiriesPage from "./components/InquiriesPage"
 import EscrowManagement from "./components/EscrowManagement"
+import DisputesPage from "./components/DisputesPage"
+import DisputeDetails from "./components/DisputeDetails"
 import ProtectedRoute from "./components/ProtectedRoute"
 import { AuthProvider } from "./contexts/AuthContext"
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
@@ -18,6 +21,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<AdminLogin />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <AdminDashboard />
@@ -61,6 +65,16 @@ function App() {
           <Route path="/escrow" element={
             <ProtectedRoute>
               <EscrowManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/disputes" element={
+            <ProtectedRoute>
+              <DisputesPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/disputes/:id" element={
+            <ProtectedRoute>
+              <DisputeDetails />
             </ProtectedRoute>
           } />
         </Routes>

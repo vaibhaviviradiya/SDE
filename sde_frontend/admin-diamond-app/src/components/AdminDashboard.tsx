@@ -5,6 +5,7 @@ import {
   ExternalLink, Circle, LogOut
 } from 'lucide-react';
 import { useUserQueries } from '../hooks/useUserQueries';
+import { useDisputeQueries } from '../hooks/useDisputeQueries';
 import { useOrderQueries } from '../hooks/useOrderQueries';
 import { useDiamondQueries } from '../hooks/useDiamondQueries';
 import { useInquiriesQueries } from '../hooks/useInquiriesQueries';
@@ -75,6 +76,7 @@ const AdminDashboard: React.FC = () => {
     const { useGetAllOrders } = useOrderQueries();
     const { useGetAllDiamonds } = useDiamondQueries();
     const { useGetAllInquiries } = useInquiriesQueries();
+    const { useGetAllDisputes } = useDisputeQueries();
     const navigate = useNavigate();
     const { logout } = useAuth();
 
@@ -82,6 +84,7 @@ const AdminDashboard: React.FC = () => {
     const { data: orders } = useGetAllOrders();
     const { data: diamonds } = useGetAllDiamonds();
     const { data: inquiries } = useGetAllInquiries();
+    const { data: disputes } = useGetAllDisputes();
 
     const userList: User[] = Array.isArray(users)
       ? users
@@ -124,7 +127,7 @@ const AdminDashboard: React.FC = () => {
         {/* Logo Section */}
         <div className="p-6 border-b border-gray-900">
           <div className="w-8 h-1 bg-[#d4af37] mb-4"></div>
-          <h1 className="text-white text-lg font-bold tracking-tight">SD Exchange</h1>
+          <h1 className="text-white text-lg font-bold tracking-tight">Surat Diamond Exchange</h1>
           <p className="text-[10px] text-gray-500 font-bold tracking-[0.2em] uppercase">Admin Console</p>
         </div>
 
@@ -186,7 +189,7 @@ const AdminDashboard: React.FC = () => {
               label="Escrow Management" 
               onClick={() => navigate('/escrow')} 
             />
-            <NavItem icon={<AlertTriangle size={18} />} label="Disputes" />
+              <NavItem icon={<AlertTriangle size={18} />} label="Disputes" badge={disputes?.length || 0} onClick={() => navigate('/disputes')} />
           </div>
         </div>
 
@@ -232,7 +235,7 @@ const AdminDashboard: React.FC = () => {
           <StatCard title="Total Users" value={String(totalUserCount)} trend="+12 this week" color="#d4af37" />
           <StatCard title="Active Orders" value={String(ordersList.length)} trend="+5 today" color="#22c55e" />
           <StatCard title="Diamonds Listed" value={totalDiamondCountLabel} trend="+28 this week" color="#d4af37" />
-          <StatCard title="Open Disputes" value="4" trend="Needs attention" color="#ef4444" isAlert />
+          <StatCard title="Open Disputes" value={String(disputes?.length || 0)} trend="Needs attention" color="#ef4444" isAlert />
         </div>
 
         {/* Bottom Section: Orders and Activity */}

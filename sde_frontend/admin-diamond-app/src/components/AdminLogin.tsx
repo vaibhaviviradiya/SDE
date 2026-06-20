@@ -101,6 +101,7 @@ const AdminLogin: React.FC = () => {
                 </label>
                 <button
                   type="button"
+                  onClick={() => navigate('/reset-password')}
                   className="text-[10px] font-bold text-[#d4af37] hover:text-yellow-700 transition-colors"
                 >
                   RESET?
